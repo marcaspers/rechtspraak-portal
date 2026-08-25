@@ -7,13 +7,21 @@ use App\Enums\LlmProvider;
 use App\Enums\LlmTaskKey;
 use App\Models\LlmTaskConfig;
 use App\Models\PromptTemplate;
+use App\Services\Llm\OllamaModelLister;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use Throwable;
 
 class Index extends Component
 {
     /** @var array<string, array<string, mixed>> */
     public array $taskConfigs = [];
+
+    /** @var array<string, array<int, string>> */
+    public array $ollamaModels = [];
+
+    /** @var array<string, string|null> */
+    public array $ollamaModelsError = [];
 
     public bool $showingTemplateModal = false;
 
@@ -81,6 +89,18 @@ class Index extends Component
         // The LlmTaskConfig model already forgets its own cache entry on save, but re-mounting
         // here keeps this component's local state (including a freshly-assigned id) in sync.
         $this->mount();
+    }
+
+    public function loadOllamaModels(string $taskKey, OllamaModelLister $lister): void
+    {
+        $this->ollamaModelsError[$taskKey] = null;
+
+        try {
+            $this->ollamaModels[$taskKey] = $lister->list($this->taskConfigs[$taskKey]['endpoint'] ?? null);
+        } catch (Throwable $e) {
+            $this->ollamaModels[$taskKey] = [];
+            $this->ollamaModelsError[$taskKey] = __('Kan geen verbinding maken met Ollama: :message', ['message' => $e->getMessage()]);
+        }
     }
 
     public function createTemplate(string $taskKey): void

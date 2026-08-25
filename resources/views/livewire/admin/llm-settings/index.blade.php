@@ -21,7 +21,7 @@
                     <div class="space-y-3">
                         <div>
                             <x-label value="{{ __('Provider') }}" />
-                            <select wire:model="taskConfigs.{{ $taskKey->value }}.provider" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                            <select wire:model.live="taskConfigs.{{ $taskKey->value }}.provider" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                 @foreach ($providers as $providerOption)
                                     <option value="{{ $providerOption->value }}">{{ $providerOption->value }}</option>
                                 @endforeach
@@ -33,6 +33,39 @@
                             <x-label value="{{ __('Model') }}" />
                             <x-input type="text" class="mt-1 block w-full" wire:model="taskConfigs.{{ $taskKey->value }}.model" placeholder="bv. claude-sonnet-4-5-20250929" />
                             <x-input-error for="taskConfigs.{{ $taskKey->value }}.model" class="mt-1" />
+
+                            @if ($taskConfigs[$taskKey->value]['provider'] === App\Enums\LlmProvider::Ollama->value)
+                                <div class="mt-2">
+                                    <button type="button"
+                                        wire:click="loadOllamaModels('{{ $taskKey->value }}')"
+                                        wire:loading.attr="disabled"
+                                        wire:target="loadOllamaModels('{{ $taskKey->value }}')"
+                                        class="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50">
+                                        {{ __('Beschikbare modellen ophalen uit Ollama') }}
+                                    </button>
+                                    <span wire:loading wire:target="loadOllamaModels('{{ $taskKey->value }}')" class="ml-2 text-xs text-gray-400">
+                                        {{ __('Laden…') }}
+                                    </span>
+
+                                    @if ($ollamaModelsError[$taskKey->value] ?? null)
+                                        <p class="mt-1 text-xs text-red-600">{{ $ollamaModelsError[$taskKey->value] }}</p>
+                                    @elseif (isset($ollamaModels[$taskKey->value]))
+                                        @if (empty($ollamaModels[$taskKey->value]))
+                                            <p class="mt-1 text-xs text-gray-500">{{ __('Geen modellen gevonden op deze Ollama-server.') }}</p>
+                                        @else
+                                            <div class="mt-2 flex flex-wrap gap-1">
+                                                @foreach ($ollamaModels[$taskKey->value] as $modelName)
+                                                    <button type="button"
+                                                        wire:click="$set('taskConfigs.{{ $taskKey->value }}.model', '{{ $modelName }}')"
+                                                        class="px-2 py-0.5 rounded text-xs {{ $taskConfigs[$taskKey->value]['model'] === $modelName ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                                        {{ $modelName }}
+                                                    </button>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    @endif
+                                </div>
+                            @endif
                         </div>
 
                         <div>
