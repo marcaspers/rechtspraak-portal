@@ -15,6 +15,12 @@
                     <x-nav-link href="{{ route('rulings.index') }}" :active="request()->routeIs('rulings.*')">
                         {{ __('Uitspraken') }}
                     </x-nav-link>
+
+                    @if (Auth::user()->isAdmin())
+                        <x-nav-link href="{{ route('admin.dashboard') }}" :active="request()->routeIs('admin.*')">
+                            {{ __('Beheer') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -142,6 +148,12 @@
             <x-responsive-nav-link href="{{ route('rulings.index') }}" :active="request()->routeIs('rulings.*')">
                 {{ __('Uitspraken') }}
             </x-responsive-nav-link>
+
+            @if (Auth::user()->isAdmin())
+                <x-responsive-nav-link href="{{ route('admin.dashboard') }}" :active="request()->routeIs('admin.*')">
+                    {{ __('Beheer') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->

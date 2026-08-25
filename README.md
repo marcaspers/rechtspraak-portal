@@ -42,10 +42,30 @@ Dit document beschrijft installatie, configuratie en deployment.
 
 Deze eerste versie implementeert briefing §6 volledig: databaseschema + kern-architectuur, één
 werkende feed (Rechtspraak.nl), alle drie de LLM-providers (interface + implementaties),
-keyword-classificatie, en een basisportal (overzicht, detail, login met 2FA, e-maildigest) —
-zonder geavanceerde admin-UI. Beheer van feeds/thema's/LLM-config gebeurt voorlopig via seeders of
-`php artisan tinker`. Zie de briefing voor wat in latere iteraties volgt (admin-UI,
-LLM-classificatie aanzetten, Curia/EHRM full-text).
+keyword-classificatie, een basisportal (overzicht, detail, login met 2FA, e-maildigest), én een
+admin-gedeelte (feed-, thema- en LLM-configuratiebeheer, verwerkingsstatus-overzicht). Zie de
+briefing voor wat in latere iteraties volgt (LLM-classificatie standaard aanzetten, Curia/EHRM
+full-text).
+
+## Admin-gedeelte
+
+Gebruikers met `role=admin` (zie `AdminUserSeeder`) zien een extra **Beheer**-link in de
+navigatie (`/admin`, middleware `admin` — `App\Http\Middleware\EnsureUserIsAdmin`):
+
+- **Overzicht** — tellingen per uitspraak-status, LLM-gebruik (laatste 7 dagen), recente
+  feed-ophaal-runs en gefaalde uitspraken met foutmelding.
+- **Feeds** — feeds toevoegen/bewerken/pauzeren/verwijderen (URL, bron, rechtsgebied,
+  ophaalfrequentie).
+- **Thema's** — thema's en hun trefwoorden beheren (komma-gescheiden invoer), activeren/
+  deactiveren.
+- **LLM-instellingen** — provider/model/endpoint/temperature/max-tokens per taak
+  (classificatie/samenvatting) instellen en aan/uit zetten, plus prompt-templates bekijken,
+  bewerken, als nieuwe versie toevoegen en activeren (precies één actief per taak, afgedwongen
+  door zowel de UI als een partial unique index in de database).
+
+Dit vervangt de eerdere "beheer via seeders/tinker"-aanpak uit de allereerste MVP-oplevering —
+die blijft wel werken (tinker/seeders schrijven naar dezelfde tabellen), maar is nu niet meer
+nodig voor dagelijks gebruik.
 
 ## Installatie (lokale ontwikkeling)
 

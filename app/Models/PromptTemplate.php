@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use App\Enums\LlmTaskKey;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PromptTemplate extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'task_key',
         'name',
