@@ -1,10 +1,10 @@
 services:
   # NOTE on environment: `env_file: .env` supplies app-level config (APP_KEY, mail, LLM provider
-  # keys, ...). DB_HOST/REDIS_HOST are overridden below to the in-network service names because
-  # the root .env is shared with plain `php artisan serve` local dev (where Postgres/Redis are
-  # reached via their published host ports instead) — see README for the full explanation. When
-  # deploying on Coolify, set each service's environment through Coolify's own per-service env
-  # management rather than relying on this shared file.
+  # keys, ...). DB_HOST/REDIS_HOST/OLLAMA_BASE_URL are overridden below to the in-network service
+  # names because the root .env is shared with plain `php artisan serve` local dev (where
+  # Postgres/Redis/Ollama are reached via their published host ports instead) — see README for the
+  # full explanation. When deploying on Coolify, set each service's environment through Coolify's
+  # own per-service env management rather than relying on this shared file.
   app:
     build:
       context: .
@@ -15,12 +15,11 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
       - postgres
       - redis
+      - ollama
     ports:
       - "${APP_PORT:-8000}:8080"
     volumes:
@@ -37,12 +36,11 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
       - postgres
       - redis
+      - ollama
     volumes:
       - storage:/var/www/html/storage/app
     restart: unless-stopped
@@ -60,12 +58,11 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
       - postgres
       - redis
+      - ollama
     volumes:
       - storage:/var/www/html/storage/app
     restart: unless-stopped
@@ -88,7 +85,18 @@ services:
     volumes:
       - redis-data:/data
 
+  # Bundled so the app has a working LLM backend out of the box. `:latest` is repinned on every
+  # `docker compose pull`/`up --pull always`; models persist in ollama-data across restarts.
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   redis-data:
   storage:
+  ollama-data:
