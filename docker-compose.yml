@@ -1,0 +1,85 @@
+services:
+  # NOTE on environment: `env_file: .env` supplies app-level config (APP_KEY, mail, LLM provider
+  # keys, ...). DB_HOST/REDIS_HOST are overridden below to the in-network service names because
+  # the root .env is shared with plain `php artisan serve` local dev (where Postgres/Redis are
+  # reached via their published host ports instead) — see README for the full explanation. When
+  # deploying on Coolify, set each service's environment through Coolify's own per-service env
+  # management rather than relying on this shared file.
+  app:
+    build:
+      context: .
+      target: app
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "${APP_PORT:-8000}:8080"
+    volumes:
+      - storage:/var/www/html/storage/app
+
+  worker:
+    build:
+      context: .
+      target: cli
+    command: php artisan queue:work --tries=3 --backoff=10,60,300
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - storage:/var/www/html/storage/app
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: .
+      target: cli
+    # A long-running process rather than a real crontab — simpler to run as its own Coolify
+    # service, and `feeds:fetch-due`/`digest:send` are cheap enough to check every minute.
+    command: php artisan schedule:work
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - storage:/var/www/html/storage/app
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-rechtspraak_portal}
+      POSTGRES_USER: ${DB_USERNAME:-rechtspraak_portal}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-rechtspraak_portal}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  postgres-data:
+  redis-data:
+  storage:
