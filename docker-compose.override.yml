@@ -1,0 +1,28 @@
+## Automatically merged by `docker compose` when this file sits next to docker-compose.yml — it
+## is what turns the "deploy-shaped" compose file into a live-reload local dev setup. Coolify (or
+## any deploy that explicitly targets docker-compose.yml only) never sees this file, so it has no
+## effect on production.
+##
+## What it does: bind-mounts the working directory into app/worker/scheduler so PHP/Blade edits
+## are picked up immediately (no rebuild), while masking vendor/node_modules/public/build/
+## bootstrap/cache with anonymous volumes so the bind mount doesn't shadow what was actually
+## installed/built/generated inside the image at `docker compose build` time — bootstrap/cache in
+## particular holds a package-discovery manifest that must match the image's own --no-dev vendor
+## tree, not whatever a host-side (dev-dependency-inclusive) composer install last generated.
+x-dev-volumes: &dev-volumes
+  - .:/var/www/html
+  - /var/www/html/vendor
+  - /var/www/html/node_modules
+  - /var/www/html/public/build
+  - /var/www/html/bootstrap/cache
+  - storage:/var/www/html/storage/app
+
+services:
+  app:
+    volumes: *dev-volumes
+
+  worker:
+    volumes: *dev-volumes
+
+  scheduler:
+    volumes: *dev-volumes

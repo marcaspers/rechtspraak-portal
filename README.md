@@ -49,6 +49,14 @@ LLM-classificatie aanzetten, Curia/EHRM full-text).
 
 ## Installatie (lokale ontwikkeling)
 
+Er zijn twee manieren om lokaal te ontwikkelen: **Optie A** installeert PHP/Node op je eigen
+machine en gebruikt Docker alleen voor Postgres/Redis; **Optie B** draait de hele stack
+(inclusief de app zelf, de queue-worker en de scheduler) in Docker, zodat je geen PHP, Composer of
+Node.js lokaal hoeft te installeren. Beide gebruiken dezelfde `.env` en dezelfde seeders — kies
+wat het prettigst werkt.
+
+### Optie A: PHP/Node lokaal, Postgres/Redis via Docker
+
 Vereisten: PHP 8.3+, Composer, Node.js 20+, Docker (voor Postgres/Redis).
 
 ```bash
@@ -70,11 +78,57 @@ php artisan schedule:work
 npm run dev   # voor Vite hot-reload tijdens front-end ontwikkeling
 ```
 
+### Optie B: volledig via Docker (geen lokale PHP/Node/Composer nodig)
+
+Vereisten: alleen Docker.
+
+`docker-compose.override.yml` wordt door `docker compose` automatisch mee-ingeladen naast
+`docker-compose.yml` en zet de `app`/`worker`/`scheduler`-services om naar een live-reload
+opstelling: de werkmap wordt in de containers gemount, zodat PHP/Blade-wijzigingen direct
+zichtbaar zijn zonder te herbouwen. `vendor/`, `node_modules/`, `public/build` en
+`bootstrap/cache` blijven daarbij wél de inhoud van de image gebruiken (via losse volumes), zodat
+de mount niet de daadwerkelijk geïnstalleerde/gebouwde bestanden overschrijft. Dit bestand raakt
+Coolify niet aan — dat gebruikt alleen `docker-compose.yml`.
+
+```bash
+cp .env.example .env
+docker compose build
+docker compose up -d
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed
+```
+
+De portal is nu bereikbaar op `http://localhost:8000`. Queue-worker en scheduler draaien al mee
+als aparte containers (`worker`, `scheduler`) — niets extra te starten.
+
+Veelgebruikte commando's met deze opstelling:
+
+```bash
+docker compose exec app php artisan tinker
+docker compose exec app php artisan test
+docker compose logs -f worker
+docker compose exec app npm run dev   # Vite hot-reload, als je aan de front-end werkt
+```
+
+Wijzig je `composer.json`/`package.json` (nieuwe dependency), dan moet je wél opnieuw builden,
+omdat `vendor`/`node_modules` in een volume zitten en niet meegroeien met de bind mount:
+
+```bash
+docker compose build app worker scheduler
+docker compose up -d
+```
+
+> **Let op**: in beide opties gebruikt de root-`.env` `DB_HOST=127.0.0.1`/`REDIS_HOST=127.0.0.1`
+> (voor Optie A, waar Postgres/Redis via hun published ports bereikbaar zijn). Voor Optie B
+> overschrijft `docker-compose.yml` dit al naar de in-Docker-netwerk-namen `postgres`/`redis` voor
+> de `app`/`worker`/`scheduler`-services — je hoeft `.env` daarvoor dus niets aan te passen.
+
 De seeders maken een admin-account aan (`ADMIN_EMAIL`/`ADMIN_PASSWORD` in `.env`, standaard
 `admin@example.com` / `password` — wijzig dit wachtwoord direct na de eerste login), een aantal
 voorbeeldthema's, de Rechtspraak.nl-feed, en de standaard LLM-taakconfiguratie en prompt-template.
 
-Om de pijplijn handmatig te testen zonder op de scheduler te wachten:
+Om de pijplijn handmatig te testen zonder op de scheduler te wachten (Optie A: zonder
+`docker compose exec app` prefix; Optie B: ermee):
 
 ```bash
 php artisan tinker
@@ -104,6 +158,8 @@ vendor/bin/pint --test    # PSR-12 codestijl
 vendor/bin/phpstan analyse # Larastan, level 5
 ```
 
+Met Optie B (volledig via Docker): zet `docker compose exec app` voor elk commando.
+
 ## Deployment via Coolify
 
 De applicatie is volledig Docker-gebaseerd (`Dockerfile`, `docker-compose.yml`) met aparte
@@ -114,9 +170,13 @@ service ingesteld (nooit hardcoded in de image).
 Belangrijk: het meegeleverde `docker-compose.yml` bevat `DB_HOST=postgres`/`REDIS_HOST=redis`
 overrides voor de `app`/`worker`/`scheduler`-services, zodat deze de meegeleverde Postgres/Redis-
 containers via het Docker-netwerk bereiken. De root-`.env` zelf gebruikt `127.0.0.1` met
-afwijkende poorten, bedoeld voor lokale ontwikkeling via `php artisan serve` (waarbij alleen
-`postgres`/`redis` uit docker-compose draaien en via hun published ports bereikbaar zijn). Stel in
-Coolify per service de juiste `DB_HOST`/`REDIS_HOST` in via Coolify's eigen env-management.
+afwijkende poorten, bedoeld voor Optie A hierboven (waarbij alleen `postgres`/`redis` uit
+docker-compose draaien en via hun published ports bereikbaar zijn). Stel in Coolify per service de
+juiste `DB_HOST`/`REDIS_HOST` in via Coolify's eigen env-management.
+
+`docker-compose.override.yml` (de live-reload opstelling uit Optie B hierboven) is alleen voor
+lokale ontwikkeling — Coolify's Docker Compose-resource wijst naar `docker-compose.yml` en leest
+dit bestand niet mee, dus de bind mount/live-reload heeft geen effect op een Coolify-deployment.
 
 Migraties worden bewust niet automatisch bij het opstarten van de container gedraaid (zodat een
 kapotte migratie de webservice niet blokkeert) — draai ze als losse stap na deployment:
